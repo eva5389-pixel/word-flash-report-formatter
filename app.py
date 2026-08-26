@@ -1,4 +1,5 @@
 import io
+from datetime import date
 from pathlib import Path
 
 import streamlit as st
@@ -56,8 +57,8 @@ def _send_picture_to_back(run):
   inline.insert(list(inline).index(doc_pr), wrap_none)
 
 
-def apply_template_and_format(doc_stream):
-  """讀取 Word 檔，套用單一完整橫幅背景與標楷體排版。"""
+def apply_template_and_format(doc_stream, header_title, header_date):
+  """套用完整橫幅背景，並疊加可編輯的速報標題與日期。"""
   doc = Document(doc_stream)
   FONT_NAME = "標楷體"
 
@@ -80,12 +81,36 @@ def apply_template_and_format(doc_stream):
     for child in list(header._element):
       header._element.remove(child)
 
-    paragraph = header.add_paragraph()
-    paragraph.paragraph_format.space_before = Pt(0)
-    paragraph.paragraph_format.space_after = Pt(0)
-    run = paragraph.add_run()
-    run.add_picture(io.BytesIO(header_image), width=section.page_width)
-    _send_picture_to_back(run)
+    background_paragraph = header.add_paragraph()
+    background_paragraph.paragraph_format.space_before = Pt(0)
+    background_paragraph.paragraph_format.space_after = Pt(0)
+    background_paragraph.paragraph_format.line_spacing = Pt(1)
+    background_run = background_paragraph.add_run()
+    background_run.add_picture(
+        io.BytesIO(header_image), width=section.page_width
+    )
+    _send_picture_to_back(background_run)
+
+    # 這兩段是真正的 Word 文字，下載後仍可直接修改。
+    title_paragraph = header.add_paragraph()
+    title_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_paragraph.paragraph_format.space_before = Pt(52)
+    title_paragraph.paragraph_format.space_after = Pt(0)
+    title_run = title_paragraph.add_run(header_title.strip())
+    title_run.font.name = FONT_NAME
+    title_run.font.size = Pt(16)
+    title_run.font.bold = True
+    title_run.font.color.rgb = RGBColor(0, 0, 0)
+
+    date_paragraph = header.add_paragraph()
+    date_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    date_paragraph.paragraph_format.right_indent = Inches(0.65)
+    date_paragraph.paragraph_format.space_before = Pt(12)
+    date_paragraph.paragraph_format.space_after = Pt(0)
+    date_run = date_paragraph.add_run(header_date.strip())
+    date_run.font.name = FONT_NAME
+    date_run.font.size = Pt(12)
+    date_run.font.color.rgb = RGBColor(0, 35, 166)
 
   # 2. 調整內文全域樣式（統一標楷體）
   normal_style = doc.styles["Normal"]
@@ -139,19 +164,33 @@ st.set_page_config(
 st.title("📄 合庫標準報告範本自動套用工具")
 st.write(
     "上傳原始 Word 檔案後，系統會把指定的完整合庫橫幅圖片直接放入頁首，"
-    "不拆分任何元素，並固定在每一頁的背景最下層。"
+    "不拆分任何元素並固定在背景最下層；中央標題及右下日期為可編輯文字。"
 )
 st.markdown("---")
 
 # 檔案上傳區
+today = date.today()
+roc_date = f"日期：{today.year - 1911} 年 {today.month:02d} 月 {today.day:02d} 日"
+
 uploaded_doc = st.file_uploader(
     "1. 請上傳您的原始 Word 檔案 (.docx)", type=["docx"]
 )
+header_title = st.text_input(
+    "2. 速報標題（顯示在圖片中央，下載 Word 後仍可編輯）",
+    value="私募信貸危機：起因、進展與風險",
+)
+header_date = st.text_input(
+    "3. 日期（顯示在圖片右下方，下載 Word 後仍可編輯）",
+    value=roc_date,
+)
+
 if uploaded_doc is not None:
   if st.button("🚀 開始自動套用速報範本與排版"):
     with st.spinner("正在處理中，請稍候..."):
       try:
-        processed_doc = apply_template_and_format(uploaded_doc)
+        processed_doc = apply_template_and_format(
+            uploaded_doc, header_title, header_date
+        )
 
         st.success("🎉 完整範本與標楷體排版套用成功！")
         st.download_button(
