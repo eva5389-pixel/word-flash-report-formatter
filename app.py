@@ -1,8 +1,10 @@
 import io
 from datetime import date
+from zipfile import ZIP_DEFLATED, ZipFile
 from pathlib import Path
 
 import streamlit as st
+from lxml import etree
 from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -11,6 +13,99 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 HEADER_IMAGE_PATH = Path(__file__).with_name("header_full.png")
+FONT_NAME = "標楷體"
+
+
+def _set_run_font(run):
+  """同時指定中西文字型，避免 Word 只替換英文或只替換中文。"""
+  run.font.name = FONT_NAME
+  r_pr = run._element.get_or_add_rPr()
+  r_fonts = r_pr.rFonts
+  if r_fonts is None:
+    r_fonts = OxmlElement("w:rFonts")
+    r_pr.insert(0, r_fonts)
+  for font_attr in ("ascii", "hAnsi", "eastAsia", "cs"):
+    r_fonts.set(qn(f"w:{font_attr}"), FONT_NAME)
+
+
+def _iter_table_paragraphs(table):
+  for row in table.rows:
+    for cell in row.cells:
+      yield from cell.paragraphs
+      for nested_table in cell.tables:
+        yield from _iter_table_paragraphs(nested_table)
+
+
+def _iter_all_paragraphs(doc):
+  """涵蓋內文、表格、頁首與頁尾中的全部段落。"""
+  yield from doc.paragraphs
+  for table in doc.tables:
+    yield from _iter_table_paragraphs(table)
+
+  seen_parts = set()
+  for section in doc.sections:
+    for container in (
+        section.header,
+        section.first_page_header,
+        section.even_page_header,
+        section.footer,
+        section.first_page_footer,
+        section.even_page_footer,
+    ):
+      part_name = str(container.part.partname)
+      if part_name in seen_parts:
+        continue
+      seen_parts.add(part_name)
+      yield from container.paragraphs
+      for table in container.tables:
+        yield from _iter_table_paragraphs(table)
+
+
+def _apply_font_everywhere(doc):
+  """強制所有樣式與所有現有文字使用標楷體，保留原本字級及粗斜體。"""
+  for style in doc.styles:
+    if hasattr(style, "font"):
+      style.font.name = FONT_NAME
+      style_r_pr = style.element.get_or_add_rPr()
+      style_r_fonts = style_r_pr.rFonts
+      if style_r_fonts is None:
+        style_r_fonts = OxmlElement("w:rFonts")
+        style_r_pr.insert(0, style_r_fonts)
+      for font_attr in ("ascii", "hAnsi", "eastAsia", "cs"):
+        style_r_fonts.set(qn(f"w:{font_attr}"), FONT_NAME)
+
+  for paragraph in _iter_all_paragraphs(doc):
+    for run in paragraph.runs:
+      _set_run_font(run)
+
+
+def _force_font_in_docx_package(docx_stream):
+  """連註腳、文字方塊與條件式表格樣式也一併強制改成標楷體。"""
+  source = io.BytesIO(docx_stream.getvalue())
+  destination = io.BytesIO()
+  word_ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  ns = {"w": word_ns}
+
+  with ZipFile(source, "r") as input_zip:
+    with ZipFile(destination, "w", ZIP_DEFLATED) as output_zip:
+      for item in input_zip.infolist():
+        data = input_zip.read(item.filename)
+        if item.filename.startswith("word/") and item.filename.endswith(".xml"):
+          root = etree.fromstring(data)
+          for r_pr in root.xpath(".//w:rPr", namespaces=ns):
+            r_fonts = r_pr.find(f"{{{word_ns}}}rFonts")
+            if r_fonts is None:
+              r_fonts = etree.Element(f"{{{word_ns}}}rFonts")
+              r_pr.insert(0, r_fonts)
+            for font_attr in ("ascii", "hAnsi", "eastAsia", "cs"):
+              r_fonts.set(f"{{{word_ns}}}{font_attr}", FONT_NAME)
+          data = etree.tostring(
+              root, xml_declaration=True, encoding="UTF-8", standalone=True
+          )
+        output_zip.writestr(item, data)
+
+  destination.seek(0)
+  return destination
 
 
 def _send_picture_to_back(run):
@@ -60,8 +155,6 @@ def _send_picture_to_back(run):
 def apply_template_and_format(doc_stream, header_title, header_date):
   """套用完整橫幅背景，並疊加可編輯的速報標題與日期。"""
   doc = Document(doc_stream)
-  FONT_NAME = "標楷體"
-
   if not HEADER_IMAGE_PATH.exists():
     raise FileNotFoundError(
         f"找不到固定頁首圖片：{HEADER_IMAGE_PATH.name}"
@@ -149,11 +242,14 @@ def apply_template_and_format(doc_stream, header_title, header_date):
         for inline in run._r.xpath(".//wp:inline"):
           inline.width = Inches(5.5)
 
+  # 最後再做一次全面字型覆蓋，確保表格、頁首頁尾及所有樣式都一致。
+  _apply_font_everywhere(doc)
+
   # 儲存到記憶體
   output_stream = io.BytesIO()
   doc.save(output_stream)
   output_stream.seek(0)
-  return output_stream
+  return _force_font_in_docx_package(output_stream)
 
 
 # --- Streamlit 網頁介面設計 ---
