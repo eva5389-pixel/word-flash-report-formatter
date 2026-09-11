@@ -37,8 +37,8 @@ def render_email_formatter():
     subject = st.text_input('3. 信件主旨', value=f'{date.today():%Y/%m/%d} 重要財金新聞匯集', key='email_subject')
     greeting = st.text_input('4. 開場問候', value=GREETING, key='email_greeting')
     with st.expander('排版選項'):
-        font = st.selectbox('信件字型', ['微軟正黑體', '標楷體'], key='email_font')
-        size = st.select_slider('內文字級', options=[14, 16, 18, 20], value=16, key='email_size')
+        font = st.selectbox('信件字型', ['標楷體', '微軟正黑體'], key='email_font')
+        size = st.select_slider('內文字級（點 pt）', options=[16, 18, 20, 22, 24], value=16, key='email_size')
         clean = st.checkbox('移除「本文共…字」、播放時間及相鄰重複文字', value=False, key='email_clean',
                             help='預設保留全部文字。勾選後仍保留新聞日期、來源及內文；排版後會顯示移除的行數。')
     signature = sha256(repr((text, subject, greeting, font, size, clean)).encode()).hexdigest()
