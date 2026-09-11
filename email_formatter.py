@@ -145,16 +145,16 @@ def plain_email(report: Report) -> str:
 
 def html_email(report: Report, subject: str, font: str = '標楷體', size: int = 16) -> str:
     fonts = {'微軟正黑體': "'Microsoft JhengHei','PingFang TC',Arial,sans-serif", '標楷體': "'標楷體',DFKai-SB,BiauKai,'KaiTi',serif"}
-    family = fonts.get(font, fonts['標楷體'])
-    size = max(16, min(24, int(size)))
-    pstyle = f'margin:0 0 16px;font-family:{family};font-size:{size}pt;line-height:1.8;overflow-wrap:anywhere;'
+    family = fonts['標楷體']
+    size = 16
+    pstyle = f'margin:0 0 16px;font-family:{family};mso-ascii-font-family:DFKai-SB;mso-fareast-font-family:標楷體;mso-hansi-font-family:DFKai-SB;font-size:{size}pt;line-height:1.8;overflow-wrap:anywhere;'
     content = [f'<p style="{pstyle}">{escape(report.greeting)}</p>'] if report.greeting else []
     for article in report.articles:
         if article.title:
-            content.append(f'<h2 style="margin:30px 0 16px;font-family:{family};font-size:{size + 2}pt;line-height:1.6;font-weight:bold;color:#17365d;overflow-wrap:anywhere;">{escape(article.title)}</h2>')
+            content.append(f'<h2 style="margin:30px 0 16px;font-family:{family};mso-ascii-font-family:DFKai-SB;mso-fareast-font-family:標楷體;mso-hansi-font-family:DFKai-SB;font-size:{size}pt;line-height:1.6;font-weight:bold;color:#17365d;overflow-wrap:anywhere;">{escape(article.title)}</h2>')
         for paragraph in article.paragraphs:
             meta = bool(DATE.match(paragraph) or SOURCE.match(paragraph) or NOISE.fullmatch(paragraph))
-            style = f'margin:0 0 8px;font-family:{family};font-size:{size}pt;line-height:1.6;color:#595959;overflow-wrap:anywhere;' if meta else pstyle
+            style = f'margin:0 0 8px;font-family:{family};mso-ascii-font-family:DFKai-SB;mso-fareast-font-family:標楷體;mso-hansi-font-family:DFKai-SB;font-size:{size}pt;line-height:1.6;color:#595959;overflow-wrap:anywhere;' if meta else pstyle
             content.append(f'<p style="{style}">{escape(paragraph)}</p>')
     return ('<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
