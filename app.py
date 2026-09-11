@@ -257,6 +257,14 @@ st.set_page_config(
     page_title="合庫標準範本自動排版系統", page_icon="📄", layout="centered"
 )
 
+mode = st.segmented_control(
+    "選擇排版功能", ["Word 速報排版", "財金新聞信件排版"], default="Word 速報排版", key="formatter_mode"
+)
+if mode == "財金新聞信件排版":
+  from email_ui import render_email_formatter
+  render_email_formatter()
+  st.stop()
+
 st.title("📄 合庫標準報告範本自動套用工具")
 st.write(
     "上傳原始 Word 檔案後，系統會把指定的完整合庫橫幅圖片直接放入頁首，"
