@@ -159,8 +159,10 @@ def html_email(report: Report, subject: str, font: str = '標楷體', size: int 
     return ('<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>{escape(subject)}</title></head><body style="margin:0;background:#ffffff;color:#222222;">'
-            f'<div style="max-width:800px;margin:0 auto;padding:24px;background:#ffffff;color:#222222;font-family:{family};">'
-            + ''.join(content) + '</div></body></html>')
+            '<table role="presentation" width="720" border="0" cellspacing="0" cellpadding="0" '
+            'style="width:7.5in;table-layout:fixed;border-collapse:collapse;mso-table-lspace:0pt;mso-table-rspace:0pt;">'
+            f'<tr><td width="720" valign="top" style="width:7.5in;padding:0;background:#ffffff;color:#222222;font-family:{family};">'
+            + ''.join(content) + '</td></tr></table></body></html>')
 
 
 def eml_email(report: Report, subject: str, font: str = '標楷體', size: int = 16) -> bytes:

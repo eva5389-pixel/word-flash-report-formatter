@@ -10,6 +10,7 @@ from email_formatter import GREETING, extract_upload, parse_report, plain_email,
 def render_email_formatter():
     st.title('財金新聞信件自動排版')
     st.write('上傳 Word 或文字檔，依「開場問候 → 新聞標題 → 日期、來源與全文」排成信件。內容不摘要、不改寫。')
+    st.caption('信件內文固定寬度 7.5 英吋（19.05 公分），預設標楷體 16 點。貼到 Outlook 時請選擇「保留來源格式」。')
     st.caption('支援 DOCX、TXT（每檔 10 MB 以內）。採文字排版，圖片與原檔的字型、顏色不會沿用。')
     uploaded = st.file_uploader('1. 上傳新聞檔案', type=['docx', 'txt'], key='email_upload')
     st.session_state.setdefault('email_source_text', '')
